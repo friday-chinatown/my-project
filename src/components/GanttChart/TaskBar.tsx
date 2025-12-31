@@ -1,3 +1,5 @@
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../../types/task';
 import { useTaskStore } from '../../store/useTaskStore';
 
@@ -5,6 +7,8 @@ interface TaskBarProps {
   task: Task;
   position: { left: number; width: number };
   yOffset: number;
+  columnWidth: number;
+  timelineStart: Date;
 }
 
 const statusColors = {
@@ -14,25 +18,42 @@ const statusColors = {
   'delayed': 'bg-task-delayed',
 };
 
-export default function TaskBar({ task, position, yOffset }: TaskBarProps) {
+export default function TaskBar({ task, position, yOffset, columnWidth, timelineStart }: TaskBarProps) {
   const { selectedTaskId, setSelectedTask } = useTaskStore();
   const isSelected = selectedTaskId === task.id;
 
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+    data: {
+      task,
+      columnWidth,
+      timelineStart,
+    },
+  });
+
+  const style = {
+    left: `${position.left}px`,
+    top: `${yOffset}px`,
+    width: `${position.width}px`,
+    height: '40px',
+    transform: CSS.Transform.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  };
+
   return (
     <div
+      ref={setNodeRef}
       className="absolute"
-      style={{
-        left: `${position.left}px`,
-        top: `${yOffset}px`,
-        width: `${position.width}px`,
-        height: '40px',
-      }}
+      style={style}
+      {...listeners}
+      {...attributes}
     >
       <div
         onClick={() => setSelectedTask(task.id)}
-        className={`relative h-full rounded-md shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${
+        className={`relative h-full rounded-md shadow-sm hover:shadow-md transition-shadow cursor-move overflow-hidden ${
           isSelected ? 'ring-2 ring-blue-500' : ''
-        }`}
+        } ${isDragging ? 'shadow-lg' : ''}`}
       >
         {/* Background */}
         <div className={`absolute inset-0 ${statusColors[task.status]} opacity-30`} />

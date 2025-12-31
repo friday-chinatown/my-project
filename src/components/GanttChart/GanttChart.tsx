@@ -1,4 +1,7 @@
 import { useMemo } from 'react';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { addDays } from 'date-fns';
 import { useTaskStore } from '../../store/useTaskStore';
 import {
   getTimelineRange,
@@ -10,7 +13,7 @@ import {
 import TaskBar from './TaskBar';
 
 export default function GanttChart() {
-  const { project } = useTaskStore();
+  const { project, updateTask } = useTaskStore();
 
   const timelineRange = useMemo(
     () => getTimelineRange(project.tasks, project.viewMode),
@@ -25,6 +28,40 @@ export default function GanttChart() {
   const columnWidth = getColumnWidth(project.viewMode);
   const totalWidth = columns.length * columnWidth;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, delta } = event;
+
+    if (!delta.x) return;
+
+    const task = active.data.current?.task;
+    const timelineStart = active.data.current?.timelineStart;
+
+    if (!task || !timelineStart) return;
+
+    // Calculate number of days to shift based on drag distance
+    const daysShift = Math.round(delta.x / columnWidth);
+
+    if (daysShift === 0) return;
+
+    // Calculate new dates
+    const newStartDate = addDays(task.startDate, daysShift);
+    const newEndDate = addDays(task.endDate, daysShift);
+
+    // Update task
+    updateTask(task.id, {
+      startDate: newStartDate,
+      endDate: newEndDate,
+    });
+  };
+
   if (project.tasks.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -36,79 +73,83 @@ export default function GanttChart() {
   }
 
   return (
-    <div className="relative">
-      {/* Timeline Header */}
-      <div
-        className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
-        style={{ width: `${totalWidth}px` }}
-      >
-        <div className="flex">
-          {columns.map((date, index) => (
-            <div
-              key={index}
-              className="flex-shrink-0 px-2 py-3 text-center border-r border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300"
-              style={{ width: `${columnWidth}px` }}
-            >
-              {formatColumnHeader(date, project.viewMode)}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div
-        className="relative"
-        style={{ width: `${totalWidth}px`, minHeight: '400px' }}
-      >
-        {/* Vertical grid lines */}
-        <div className="absolute inset-0 flex pointer-events-none">
-          {columns.map((_, index) => (
-            <div
-              key={index}
-              className="flex-shrink-0 border-r border-gray-200 dark:border-gray-700"
-              style={{ width: `${columnWidth}px` }}
-            />
-          ))}
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="relative">
+        {/* Timeline Header */}
+        <div
+          className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+          style={{ width: `${totalWidth}px` }}
+        >
+          <div className="flex">
+            {columns.map((date, index) => (
+              <div
+                key={index}
+                className="flex-shrink-0 px-2 py-3 text-center border-r border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300"
+                style={{ width: `${columnWidth}px` }}
+              >
+                {formatColumnHeader(date, project.viewMode)}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Today marker */}
-        {(() => {
-          const today = new Date();
-          const position = calculateTaskPosition(
-            today,
-            today,
-            timelineRange.start,
-            columnWidth
-          );
-          return (
-            <div
-              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-5 pointer-events-none"
-              style={{ left: `${position.left}px` }}
-            />
-          );
-        })()}
+        {/* Grid */}
+        <div
+          className="relative"
+          style={{ width: `${totalWidth}px`, minHeight: '400px' }}
+        >
+          {/* Vertical grid lines */}
+          <div className="absolute inset-0 flex pointer-events-none">
+            {columns.map((_, index) => (
+              <div
+                key={index}
+                className="flex-shrink-0 border-r border-gray-200 dark:border-gray-700"
+                style={{ width: `${columnWidth}px` }}
+              />
+            ))}
+          </div>
 
-        {/* Task bars */}
-        <div className="relative py-4">
-          {project.tasks.map((task, index) => {
+          {/* Today marker */}
+          {(() => {
+            const today = new Date();
             const position = calculateTaskPosition(
-              task.startDate,
-              task.endDate,
+              today,
+              today,
               timelineRange.start,
               columnWidth
             );
-
             return (
-              <TaskBar
-                key={task.id}
-                task={task}
-                position={position}
-                yOffset={index * 60}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-5 pointer-events-none"
+                style={{ left: `${position.left}px` }}
               />
             );
-          })}
+          })()}
+
+          {/* Task bars */}
+          <div className="relative py-4">
+            {project.tasks.map((task, index) => {
+              const position = calculateTaskPosition(
+                task.startDate,
+                task.endDate,
+                timelineRange.start,
+                columnWidth
+              );
+
+              return (
+                <TaskBar
+                  key={task.id}
+                  task={task}
+                  position={position}
+                  yOffset={index * 60}
+                  columnWidth={columnWidth}
+                  timelineStart={timelineRange.start}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+    </DndContext>
   );
 }

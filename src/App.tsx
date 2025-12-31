@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Plus, Moon, Sun } from 'lucide-react';
 import { useTaskStore } from './store/useTaskStore';
 import { useDarkMode } from './hooks/useDarkMode';
 import TaskList from './components/TaskList/TaskList';
-import TaskForm from './components/TaskForm/TaskForm';
-import GanttChart from './components/GanttChart/GanttChart';
+
+// Lazy load heavy components for better initial load performance
+const TaskForm = lazy(() => import('./components/TaskForm/TaskForm'));
+const GanttChart = lazy(() => import('./components/GanttChart/GanttChart'));
 
 function App() {
   const { project, setViewMode, loadProject } = useTaskStore();
@@ -76,13 +78,21 @@ function App() {
 
         {/* Gantt Chart */}
         <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
-          <GanttChart />
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full">
+              <div className="text-gray-500 dark:text-gray-400">Loading chart...</div>
+            </div>
+          }>
+            <GanttChart />
+          </Suspense>
         </div>
       </main>
 
       {/* Task Form Modal */}
       {isFormOpen && (
-        <TaskForm onClose={() => setIsFormOpen(false)} />
+        <Suspense fallback={null}>
+          <TaskForm onClose={() => setIsFormOpen(false)} />
+        </Suspense>
       )}
     </div>
   );
