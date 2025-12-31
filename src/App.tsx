@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Moon, Sun } from 'lucide-react';
 import { useTaskStore } from './store/useTaskStore';
+import { useDarkMode } from './hooks/useDarkMode';
 import TaskList from './components/TaskList/TaskList';
 import TaskForm from './components/TaskForm/TaskForm';
 import GanttChart from './components/GanttChart/GanttChart';
 
 function App() {
   const { project, setViewMode, loadProject } = useTaskStore();
+  const { isDark, toggle: toggleDarkMode } = useDarkMode();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
@@ -39,6 +41,19 @@ function App() {
                 </button>
               ))}
             </div>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {isDark ? (
+                <Sun size={20} className="text-gray-700 dark:text-gray-300" />
+              ) : (
+                <Moon size={20} className="text-gray-700 dark:text-gray-300" />
+              )}
+            </button>
 
             {/* New Task Button */}
             <button
